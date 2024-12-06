@@ -25,6 +25,7 @@ Instead of building a mock of DB I prefer having a real DB (**medication_test**)
 ## TODO
 
 I've encountered problems running tests inside test container, so I stopped there and I miss tests here.
+I would also change import paths directly to github as it's not available there.
 
 ## Prerequisites
 
