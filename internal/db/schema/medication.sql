@@ -1,0 +1,8 @@
+CREATE TABLE IF NOT EXISTS public.medications (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    dosage VARCHAR(50),
+    form VARCHAR(50),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

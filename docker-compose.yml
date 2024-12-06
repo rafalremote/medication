@@ -1,0 +1,61 @@
+services:
+  db:
+    image: postgres:latest
+    container_name: medication
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: medication
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
+  init-db:
+    image: postgres:latest
+    depends_on:
+      - db
+    volumes:
+      - ./internal/db/schema:/docker-entrypoint-initdb.d
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: medication
+    entrypoint: >
+      sh -c "
+      until pg_isready -h db -U postgres -d medication; do
+        echo 'Waiting for database to be ready...';
+        sleep 2;
+      done;
+      echo 'Database is ready! Running migration...';
+      PGPASSWORD=postgres psql -h db -U postgres -d medication -f /docker-entrypoint-initdb.d/medication.sql;
+      if [ \"$SEED\" = \"true\" ]; then
+        echo 'Seeding the database...';
+        PGPASSWORD=postgres psql -h db -U postgres -d medication -f /docker-entrypoint-initdb.d/seed.sql;
+      fi"
+  api:
+    build:
+      context: .
+    container_name: medication_api
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=medication
+      - JWT_SECRET=your_jwt_secret
+      - TARGET_RELEASE=DEV
+      - SEED=false
+    depends_on:
+      - db
+      - init-db
+    volumes:
+      - .:/src
+    working_dir: /app
+    command: ./server
+
+volumes:
+  db_data:

@@ -1,0 +1,67 @@
+services:
+  test-db:
+    image: postgres:latest
+    container_name: medication_test_db
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: medication_test
+    volumes:
+      - test_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h localhost -p 5432 -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  init-test-db:
+    image: postgres:latest
+    depends_on:
+      test-db:
+        condition: service_healthy
+    volumes:
+      - ./internal/db/schema:/docker-entrypoint-initdb.d
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: medication_test
+    entrypoint: >
+      sh -c "
+      until pg_isready -h test-db -U postgres -d medication_test; do
+        echo 'Waiting for database to be ready...';
+        sleep 2;
+      done;
+      echo 'Database is ready! Running migration...';
+      PGPASSWORD=postgres psql -h test-db -U postgres -d medication_test -f /docker-entrypoint-initdb.d/medication.sql;
+      "
+
+  test-runner:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    environment:
+      - DB_HOST=test-db
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=medication_test
+      - TARGET_RELEASE=DEV
+    depends_on:
+      init-test-db:
+        condition: service_started
+    volumes:
+      - .:/app
+    entrypoint: >
+      sh -c "
+      echo 'Waiting for database to be ready...';
+      until pg_isready -h test-db -p 5432 -U postgres; do
+        sleep 2;
+      done;
+      echo 'Database is ready! Running tests...';
+      go test ./tests/... -v;
+      "
+
+volumes:
+  test_db_data:
